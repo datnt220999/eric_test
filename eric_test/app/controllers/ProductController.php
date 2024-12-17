@@ -2,6 +2,7 @@
 // app/controllers/ProductController.php
 
 require_once __DIR__ . '/../repositories/ProductRepository.php';
+require_once __DIR__ . '/../utils/Response.php'; // Make sure Response.php is included
 
 class ProductController
 {
@@ -15,60 +16,68 @@ class ProductController
 
     public function create()
     {
-        $data = $_POST;
+        try {
+            $data = $_POST;
 
-        if (empty($data['price']) || empty($data['name']) || empty($data['description']) || empty($_FILES['image'])) {
-            Response::send(400, "All fields are required.");
-            return;
+            if (empty($data['price']) || empty($data['name']) || empty($data['description']) || empty($_FILES['image'])) {
+                Response::send(400, "All fields are required.");
+                return;
+            }
+
+            $image = $_FILES['image'];
+
+            if ($image['error'] != 0) {
+                Response::send(400, "Error uploading image.");
+                return;
+            }
+
+            $allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
+            if (!in_array($image['type'], $allowedTypes)) {
+                Response::send(400, "Invalid image type. Only JPG, PNG, and GIF are allowed.");
+                return;
+            }
+
+            $uploadDir = __DIR__.'/../../public/uploads/images/';
+            $filename = $uploadDir . basename($image['name']);
+            if (!move_uploaded_file($image['tmp_name'], $filename)) {
+                Response::send(500, "Failed to move uploaded image.");
+                return;
+            }
+
+            // Sử dụng repository để tạo sản phẩm
+            $this->productRepository->createProduct($data['name'], basename($image['name']), $data['description'], $data['price'], $_SESSION['user_id']);
+            Response::send(201, "Product created successfully.");
+        } catch (Exception $e) {
+            Response::send(500, "An error occurred while creating product: " . $e->getMessage());
         }
 
-        $image = $_FILES['image'];
-
-        if ($image['error'] != 0) {
-            Response::send(400, "Error uploading image.");
-            return;
-        }
-
-        $allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
-        if (!in_array($image['type'], $allowedTypes)) {
-            Response::send(400, "Invalid image type. Only JPG, PNG, and GIF are allowed.");
-            return;
-        }
-
-        $uploadDir = __DIR__.'/../../public/uploads/images/';
-        $filename = $uploadDir . basename($image['name']);
-        if (!move_uploaded_file($image['tmp_name'], $filename)) {
-            Response::send(500, "Failed to move uploaded image.");
-            return;
-        }
-
-        // Sử dụng repository để tạo sản phẩm
-        $this->productRepository->createProduct($data['name'], basename($image['name']), $data['description'], $data['price'], $_SESSION['user_id']);
-        Response::send(201, "Product created successfully.");
     }
 
     public function detail()
     {
-        $data = $_GET;
-
         try {
             $productId = $_GET['id'];
+            if(!isset($productId)){
+                Response::send(400, "Product ID is required.");
+                return;
+            }
             $product = $this->productRepository->getProductById($productId, $_SESSION['user_id']);
             Response::send(200,'Success',  $product);
         } catch (\Exception $e) {
-            Response::send(404, "Product not found.");
+            Response::send(404, "Product not found: ".$e->getMessage());
         }
     }
 
     public function listProduct()
     {
-        $data = $_GET;
-
-        // Lấy tham số phân trang từ query string (default page = 1, limit = 12)
-        $page = isset($data['page']) ? (int)$data['page'] : 1;
-        $limit = isset($data['limit']) ? (int)$data['limit'] : 12;
-
         try {
+            $data = $_GET;
+
+            // Lấy tham số phân trang từ query string (default page = 1, limit = 12)
+            $page = isset($data['page']) ? (int)$data['page'] : 1;
+            $limit = isset($data['limit']) ? (int)$data['limit'] : 12;
+
+
             // Gọi phương thức getAllProducts() của repository để lấy danh sách sản phẩm phân trang
             $listProduct = $this->productRepository->getAllProducts($page, $limit);
 
@@ -87,8 +96,7 @@ class ProductController
                 ]
             ]);
         } catch (\Exception $e) {
-            Response::send(404, "Products not found.");
+            Response::send(404, "Products not found: ".$e->getMessage());
         }
     }
-
 }
