@@ -17,18 +17,32 @@ class OrderController
     public function listOrders()
     {
         try {
-            $userId = $this->getUserIdFromSession();
             // Get orders from the OrderRepository
-            $orders = $this->orderRepository->getOrdersByUserId($userId);
+            $data = $_GET;
+            $page = isset($data['page']) ? (int)$data['page'] : 1;
+            $limit = isset($data['limit']) ? (int)$data['limit'] : 12;
 
-            if (empty($orders)) {
-                Response::send(404, "No orders found for this user");
-                return;
-            }
+            $userId = $this->getUserIdFromSession();
 
+            $orders = $this->orderRepository->getOrdersByUserId($userId,$page, $limit);
+
+//            if (empty($orders)) {
+//                Response::send(404, "No orders found for this user");
+//                return;
+//            }
+
+            // Lấy tổng số sản phẩm (để tính tổng số trang)
+            $totalOrders = $this->orderRepository->getTotalOrdersByUserId($userId);
+            $totalPages = ceil($totalOrders / $limit);
             // Return the list of orders
             Response::send(200, "Orders retrieved successfully", [
-                "orders" => $orders
+                "orders" => $orders,
+                    'pagination' => [
+                    'current_page' => $page,
+                    'total_pages' => $totalPages,
+                    'total_orders' => $totalOrders,
+                    'limit' => $limit
+                ]
             ]);
         }  catch (InvalidArgumentException $e) {
             Response::send(400, $e->getMessage());

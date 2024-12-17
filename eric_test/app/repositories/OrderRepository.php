@@ -17,12 +17,16 @@ class OrderRepository
         $order = new Order();
         return $order->cancelOrder($orderId);
     }
-    public function getOrdersByUserId($userId)
+    public function getOrdersByUserId($userId,$page = 1, $limit = 12)
     {
         $order = new Order();
-        return $order->getOrdersByUserId($userId);
+        return $order->getOrdersByUserId($userId,$page, $limit);
     }
-
+    public function getTotalOrdersByUserId($userId)
+    {
+        $order = new Order();
+        return $order->getTotalOrdersByUserId($userId);
+    }
     public function updateOrderStatus($orderId, $status, $userId)
     {
         $order = new Order();
