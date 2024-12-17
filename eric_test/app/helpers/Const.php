@@ -1,2 +1,3 @@
 <?php
-define('KEY',"AVCD");
+//app/helpers/Const.php
+define('KEY',"ADSADAXSASAFSAFSSACAxcdcasdcssacas");

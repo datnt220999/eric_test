@@ -2,16 +2,19 @@
 // app/controllers/ProductController.php
 
 require_once __DIR__ . '/../repositories/ProductRepository.php';
-require_once __DIR__ . '/../utils/Response.php'; // Make sure Response.php is included
+require_once __DIR__ . '/../utils/Response.php';
 
 class ProductController
 {
     protected $productRepository;
+    private $uploadDir;
+    private $allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
 
     // Constructor nhận đối tượng ProductRepository
     public function __construct()
     {
         $this->productRepository = new ProductRepository();
+        $this->uploadDir = __DIR__.'/../../public/uploads/images/';
     }
 
     public function create()
@@ -19,39 +22,50 @@ class ProductController
         try {
             $data = $_POST;
 
-            if (empty($data['price']) || empty($data['name']) || empty($data['description']) || empty($_FILES['image'])) {
-                Response::send(400, "All fields are required.");
-                return;
-            }
+            $this->validateCreateInput($data); // Validate input
 
             $image = $_FILES['image'];
+            $this->validateImage($image); // Validate image
 
-            if ($image['error'] != 0) {
-                Response::send(400, "Error uploading image.");
-                return;
-            }
-
-            $allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
-            if (!in_array($image['type'], $allowedTypes)) {
-                Response::send(400, "Invalid image type. Only JPG, PNG, and GIF are allowed.");
-                return;
-            }
-
-            $uploadDir = __DIR__.'/../../public/uploads/images/';
-            $filename = $uploadDir . basename($image['name']);
-            if (!move_uploaded_file($image['tmp_name'], $filename)) {
-                Response::send(500, "Failed to move uploaded image.");
-                return;
-            }
+            $filename = $this->uploadImage($image); // Upload image
 
             // Sử dụng repository để tạo sản phẩm
-            $this->productRepository->createProduct($data['name'], basename($image['name']), $data['description'], $data['price'], $_SESSION['user_id']);
+            $this->productRepository->createProduct($data['name'], basename($filename), $data['description'], $data['price'], $_SESSION['user_id']);
             Response::send(201, "Product created successfully.");
-        } catch (Exception $e) {
+        } catch (InvalidArgumentException $e) {
+            Response::send(400, $e->getMessage());
+        }
+        catch (Exception $e) {
             Response::send(500, "An error occurred while creating product: " . $e->getMessage());
         }
-
     }
+
+    private function validateCreateInput($data){
+        if (empty($data['price']) || empty($data['name']) || empty($data['description']) || empty($_FILES['image'])) {
+            throw new InvalidArgumentException("All fields are required.");
+        }
+    }
+    private function validateImage($image)
+    {
+        if ($image['error'] != 0) {
+            throw new InvalidArgumentException("Error uploading image.");
+        }
+
+
+        if (!in_array($image['type'], $this->allowedTypes)) {
+            throw new InvalidArgumentException("Invalid image type. Only JPG, PNG, and GIF are allowed.");
+        }
+    }
+
+    private function uploadImage($image)
+    {
+        $filename = $this->uploadDir . basename($image['name']);
+        if (!move_uploaded_file($image['tmp_name'], $filename)) {
+            throw new Exception("Failed to move uploaded image.");
+        }
+        return $filename;
+    }
+
 
     public function detail()
     {
@@ -62,9 +76,13 @@ class ProductController
                 return;
             }
             $product = $this->productRepository->getProductById($productId, $_SESSION['user_id']);
+            if (!$product) {
+                Response::send(404, "Product not found");
+                return;
+            }
             Response::send(200,'Success',  $product);
-        } catch (\Exception $e) {
-            Response::send(404, "Product not found: ".$e->getMessage());
+        }  catch (Exception $e) {
+            Response::send(500, "An error occurred: " . $e->getMessage());
         }
     }
 
@@ -96,7 +114,7 @@ class ProductController
                 ]
             ]);
         } catch (\Exception $e) {
-            Response::send(404, "Products not found: ".$e->getMessage());
+            Response::send(500, "An error occurred: " . $e->getMessage());
         }
     }
 }
