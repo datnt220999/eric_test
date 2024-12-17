@@ -1,0 +1,4 @@
+*.log
+error.log
+debug.log
+logs/
