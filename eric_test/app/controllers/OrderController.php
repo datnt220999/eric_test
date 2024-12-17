@@ -26,10 +26,6 @@ class OrderController
 
             $orders = $this->orderRepository->getOrdersByUserId($userId,$page, $limit);
 
-//            if (empty($orders)) {
-//                Response::send(404, "No orders found for this user");
-//                return;
-//            }
 
             // Lấy tổng số sản phẩm (để tính tổng số trang)
             $totalOrders = $this->orderRepository->getTotalOrdersByUserId($userId);
